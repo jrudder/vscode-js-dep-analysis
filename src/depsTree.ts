@@ -1,7 +1,7 @@
 import * as vscode from "vscode"
 import * as path from "path"
 import { Node } from "@npmcli/arborist"
-import { Analyze, Trust } from "./analyze"
+import { Analyze, Trust, Cache } from "./analyze"
 
 // Element is the type of the items help by this TreeDataProvider
 type Element = [Trust, Node]
@@ -13,7 +13,7 @@ export class ArboristProvider implements vscode.TreeDataProvider<Element> {
   private _onDidChangeTreeData = new vscode.EventEmitter<Event>()
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event
 
-  constructor(private readonly root: Element) {}
+  constructor(private readonly root: Element, private readonly cache: Cache) {}
 
   // getChildren returns the children of the given `element` or the root children
   // iff `element` is `undefined`
@@ -25,7 +25,7 @@ export class ArboristProvider implements vscode.TreeDataProvider<Element> {
         .filter((edge) => edge.type === "prod")
         .map(
           async (edge): Promise<Element> => {
-            const trust = await Analyze(edge.to.package?.repository?.url)
+            const trust = await Analyze(edge.to.package?.repository?.url, this.cache)
             return [trust, edge.to]
           }
         )
