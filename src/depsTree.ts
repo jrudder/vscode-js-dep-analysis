@@ -1,38 +1,53 @@
 import * as vscode from "vscode"
 import * as path from "path"
 import { Node } from "@npmcli/arborist"
+import { Analyze, Trust } from "./analyze"
+
+// Element is the type of the items help by this TreeDataProvider
+type Element = [Trust, Node]
 
 // Event is emitted when the tree data changes
-type Event = Node | void
+type Event = Element | void
 
-export class ArboristProvider implements vscode.TreeDataProvider<Node> {
+export class ArboristProvider implements vscode.TreeDataProvider<Element> {
   private _onDidChangeTreeData = new vscode.EventEmitter<Event>()
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event
 
-  constructor(private readonly root: Node) {}
+  constructor(private readonly root: Element) {}
 
   // getChildren returns the children of the given `element` or the root children
   // iff `element` is `undefined`
-  async getChildren(element?: Node): Promise<Node[]> {
-    const node = element ?? this.root
-    return Array.from(node.edgesOut.values())
-      .filter((edge) => edge.type === "prod")
-      .map((edge) => edge.to)
+  async getChildren(element?: Element): Promise<Element[]> {
+    const [, node] = element ?? this.root
+
+    const result = Promise.all(
+      Array.from(node.edgesOut.values())
+        .filter((edge) => edge.type === "prod")
+        .map(
+          async (edge): Promise<Element> => {
+            const trust = await Analyze(edge.to.package?.repository?.url)
+            return [trust, edge.to]
+          }
+        )
+    )
+
+    return result
   }
 
-  // getTreeItem returns a `vscode.TreeItem` for the given `Node`
-  getTreeItem({ name, edgesOut, package: pkg }: Node): vscode.TreeItem {
+  // getTreeItem returns a `vscode.TreeItem` for the given `Element`
+  getTreeItem([trust, { name, edgesOut, package: pkg }]: Element): vscode.TreeItem {
     const version = pkg?.version ?? ""
+    const label = `${trust} ${name}`
 
     if (edgesOut.size === 0) {
-      return new Dependency(name, version, vscode.TreeItemCollapsibleState.None, {
+      return new Dependency(label, version, vscode.TreeItemCollapsibleState.None, {
         command: "extension.openPackageOnNpm",
         title: "",
         arguments: [name],
       })
     }
 
-    return new Dependency(name, version, vscode.TreeItemCollapsibleState.Collapsed)
+    return new Dependency(label, version, vscode.TreeItemCollapsibleState.Collapsed)
   }
 
   // refresh notifies VS Code that we want to refresh

@@ -17,7 +17,7 @@ export default class DepsView {
     })
     arb.loadActual().then((tree) => {
       // Create the data provider and view
-      const treeDataProvider = new ArboristProvider(tree)
+      const treeDataProvider = new ArboristProvider(["indeterminate", tree])
       const view = vscode.window.createTreeView("nodeDependencies", {
         treeDataProvider,
         showCollapseAll: true,
