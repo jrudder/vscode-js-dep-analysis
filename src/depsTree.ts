@@ -1,94 +1,43 @@
 import * as vscode from "vscode"
-import * as fs from "fs"
 import * as path from "path"
+import { Node } from "@npmcli/arborist"
 
-export class DepNodeProvider implements vscode.TreeDataProvider<Dependency> {
-  private _onDidChangeTreeData: vscode.EventEmitter<
-    Dependency | undefined | void
-  > = new vscode.EventEmitter<Dependency | undefined | void>()
-  readonly onDidChangeTreeData: vscode.Event<Dependency | undefined | void> = this
-    ._onDidChangeTreeData.event
+// Event is emitted when the tree data changes
+type Event = Node | void
 
-  constructor(private workspaceRoot: string) {}
+export class ArboristProvider implements vscode.TreeDataProvider<Node> {
+  private _onDidChangeTreeData = new vscode.EventEmitter<Event>()
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event
 
+  constructor(private readonly root: Node) {}
+
+  // getChildren returns the children of the given `element` or the root children
+  // iff `element` is `undefined`
+  async getChildren(element?: Node): Promise<Node[]> {
+    const node = element ?? this.root
+    return Array.from(node.edgesOut.values())
+      .filter((edge) => edge.type === "prod")
+      .map((edge) => edge.to)
+  }
+
+  // getTreeItem returns a `vscode.TreeItem` for the given `Node`
+  getTreeItem({ name, edgesOut, package: pkg }: Node): vscode.TreeItem {
+    const version = pkg?.version ?? ""
+
+    if (edgesOut.size === 0) {
+      return new Dependency(name, version, vscode.TreeItemCollapsibleState.None, {
+        command: "extension.openPackageOnNpm",
+        title: "",
+        arguments: [name],
+      })
+    }
+
+    return new Dependency(name, version, vscode.TreeItemCollapsibleState.Collapsed)
+  }
+
+  // refresh notifies VS Code that we want to refresh
   refresh(): void {
     this._onDidChangeTreeData.fire()
-  }
-
-  getTreeItem(element: Dependency): vscode.TreeItem {
-    return element
-  }
-
-  getChildren(element?: Dependency): Thenable<Dependency[]> {
-    if (!this.workspaceRoot) {
-      vscode.window.showInformationMessage("No dependency in empty workspace")
-      return Promise.resolve([])
-    }
-
-    if (element) {
-      return Promise.resolve(
-        this.getDepsInPackageJson(
-          path.join(this.workspaceRoot, "node_modules", element.label, "package.json")
-        )
-      )
-    } else {
-      const packageJsonPath = path.join(this.workspaceRoot, "package.json")
-      if (this.pathExists(packageJsonPath)) {
-        return Promise.resolve(this.getDepsInPackageJson(packageJsonPath))
-      } else {
-        vscode.window.showInformationMessage("Workspace has no package.json")
-        return Promise.resolve([])
-      }
-    }
-  }
-
-  /**
-   * Given the path to package.json, read all its dependencies and devDependencies.
-   */
-  private getDepsInPackageJson(packageJsonPath: string): Dependency[] {
-    if (this.pathExists(packageJsonPath)) {
-      const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8"))
-
-      const toDep = (moduleName: string, version: string): Dependency => {
-        if (this.pathExists(path.join(this.workspaceRoot, "node_modules", moduleName))) {
-          return new Dependency(
-            moduleName,
-            version,
-            vscode.TreeItemCollapsibleState.Collapsed
-          )
-        } else {
-          return new Dependency(moduleName, version, vscode.TreeItemCollapsibleState.None, {
-            command: "extension.openPackageOnNpm",
-            title: "",
-            arguments: [moduleName],
-          })
-        }
-      }
-
-      const deps = packageJson.dependencies
-        ? Object.keys(packageJson.dependencies).map((dep) =>
-            toDep(dep, packageJson.dependencies[dep])
-          )
-        : []
-      const devDeps = packageJson.devDependencies
-        ? Object.keys(packageJson.devDependencies).map((dep) =>
-            toDep(dep, packageJson.devDependencies[dep])
-          )
-        : []
-      return deps.concat(devDeps)
-    } else {
-      return []
-    }
-  }
-
-  private pathExists(p: string): boolean {
-    try {
-      fs.accessSync(p)
-    } catch (err) {
-      return false
-    }
-
-    return true
   }
 }
 
