@@ -2,6 +2,7 @@ import * as vscode from "vscode"
 import { Arborist, Node } from "@npmcli/arborist"
 import { ArboristProvider, Element } from "./depsTree"
 import { Doc } from "./doc"
+import { ReportWebView } from "./reportWebView"
 
 // DepsView setups up the view for the `DepNodeProvider`
 export default class DepsView {
@@ -26,10 +27,21 @@ export default class DepsView {
       context.subscriptions.push(treeView)
       vscode.window.registerTreeDataProvider("nodeDependencies", treeDataProvider)
 
-      // Create the virtual document view
-      const scheme = "js-sec-maybe"
-      const doc = new Doc(treeDataProvider.elements)
-      context.subscriptions.push( vscode.workspace.registerTextDocumentContentProvider(scheme, doc) )
+      // // Create the virtual document view
+      // const scheme = "js-sec-maybe"
+      // const doc = new Doc(treeDataProvider.elements)
+      // context.subscriptions.push( vscode.workspace.registerTextDocumentContentProvider(scheme, doc) )
+
+      // Create a web view
+      if (vscode.window.registerWebviewPanelSerializer) {
+        // Make sure we register a serializer in activation event
+        vscode.window.registerWebviewPanelSerializer(ReportWebView.viewType, {
+          async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: unknown) {
+            console.log(`Got state: ${state}`);
+            // ReportWebView.revive(webviewPanel, context.extensionUri);
+          }
+        });
+      }
 
       // Register commands for the tree view
       vscode.commands.registerCommand("nodeDependencies.refreshEntry", () => treeDataProvider.refresh() )
@@ -38,21 +50,37 @@ export default class DepsView {
       vscode.commands.registerCommand("nodeDependencies.editEntry", (node: Node) => vscode.window.showInformationMessage( `Successfully called edit entry on ${node.name}.` ) )
       vscode.commands.registerCommand("nodeDependencies.deleteEntry", (node: Node) => vscode.window.showInformationMessage( `Successfully called delete entry on ${node.name}.` ) )
 
-      // Register commands for the document
-      vscode.commands.registerCommand("nodeDependencies.select",
-        async (element: Element) => {
-          const [analysis, { name }] = element
+      // Register commands for the webview
+      context.subscriptions.push(
+        vscode.commands.registerCommand("nodeDependencies.select", 
+          async (element: Element) => {
+            const [analysis, node] = element
 
-          if (analysis === null) {
-            vscode.window.showInformationMessage(`Analysis not available for ${name}`)
-            return
+            if (analysis === null) {
+              vscode.window.showInformationMessage(`Analysis not available for ${node.name}`)
+              return
+            }
+
+            ReportWebView.createOrShow(context.extensionUri, analysis, node)
           }
-
-          const uri = vscode.Uri.parse(`${scheme}:${analysis.data.url}`)
-          const doc = await vscode.workspace.openTextDocument(uri)
-          await vscode.window.showTextDocument(doc, { preview: false })
-        }
+        )
       )
+
+      // Register commands for the document
+      // vscode.commands.registerCommand("nodeDependencies.select",
+      //   async (element: Element) => {
+      //     const [analysis, { name }] = element
+
+      //     if (analysis === null) {
+      //       vscode.window.showInformationMessage(`Analysis not available for ${name}`)
+      //       return
+      //     }
+
+      //     const uri = vscode.Uri.parse(`${scheme}:${analysis.data.url}`)
+      //     const doc = await vscode.workspace.openTextDocument(uri)
+      //     await vscode.window.showTextDocument(doc, { preview: false })
+      //   }
+      // )
     })
   }
 }

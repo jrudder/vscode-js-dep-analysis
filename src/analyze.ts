@@ -116,18 +116,13 @@ async function getRepoData(
     return null
   }
 
-  // if (!(owner === "kelektiv" && repo === "node-uuid")) {
-  //   console.log(`Skipping ${owner}/${repo} for now`)
-  //   return null
-  // }
-
   // If we have valid cache data, use it
   const cacheKey = `github/${owner}/${repo}`
   const cached = cache.get<CacheEntry<ReposGetResponseData>>(cacheKey)
-  // if (cached && Date.now() < cached.timestamp + 1 * DAYS) {
-  //   console.log("Returning cached data")
-  //   return extractRepoData(cached.data)
-  // }
+  if (cached && Date.now() < cached.timestamp + 1 * DAYS) {
+    console.log("Returning cached data")
+    return extractRepoData(cached.data, node)
+  }
 
   // TODO: handle lookup failures
   const { data } = await octokit.repos.get({
