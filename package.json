@@ -85,7 +85,20 @@
 				}
 			]
 		},
-		"configuration": []
+		"configuration": [
+			{
+				"title": "JavaScript Dependency Analysis",
+				"properties": {
+					"javascriptDependencyAnalysis.gitHubToken": {
+						"title": "GitHub Token",
+						"type": "string",
+						"default": "",
+						"description": "GitHub personal access token to use when retrieving repository metadata",
+						"scope": "application"
+					}
+				}
+			}
+		]
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",

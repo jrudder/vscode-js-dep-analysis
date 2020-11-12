@@ -1,5 +1,13 @@
+import * as vscode from "vscode"
 import { Octokit } from "@octokit/rest"
 import { ReposGetResponseData } from "@octokit/types"
+import { Node } from "@npmcli/arborist"
+
+// Analysis contains the information gathered and calculated about a repository
+export type Analysis = {
+  trust: Trust
+  data: RepoData
+} | null
 
 export type Trust = "low" | "high" | "indeterminate"
 
@@ -15,8 +23,13 @@ interface CacheEntry<T> {
 }
 
 interface RepoData {
+  url: string
+  owner: string
+  repo: string
   forks: number
   stars: number
+  version: string
+  dependencies: number
 }
 
 // Time consts for use with cache expiration
@@ -36,29 +49,57 @@ const DAYS = 24 * HOURS
 //   4: repo
 const REPO_REGEX = /^(.*):\/\/([^@]*@)?(.*)\/(.*)\/(.*).git$/
 
-const octokit = new Octokit()
+// TODO: find a better way / place to store this; this doesn't feel right for a token
+// TODO: reconfigure auth when the configuration value changes
+const octokit = new Octokit({
+  auth: vscode.workspace
+    .getConfiguration("")
+    .get<string>("javascriptDependencyAnalysis.gitHubToken"),
+})
 
 // Analyze the given repository URL to determine trust level
-export async function Analyze(url: string | undefined, cache: Cache): Promise<Trust> {
+export async function Analyze(node: Node | undefined, cache: Cache): Promise<Analysis> {
+  if (!node) {
+    return null
+  }
+
+  const url = node?.package?.repository?.url
   if (!url) {
-    return "indeterminate"
+    return null
   }
 
-  const data = await getRepoData(url, cache)
+  const data = await getRepoData(node, url, cache)
   if (!data) {
-    return "indeterminate"
+    return null
   }
 
-  if (data.forks >= 500) {
-    return "high"
+  if (data.forks >= 500 || data.stars >= 500) {
+    return {
+      trust: "high",
+      data,
+    }
+  }
+  const version = node.package.version ?? "0.0.0"
+  if (data.forks === 0 || data.stars === 0 || version.split(".")[0] === "0") {
+    return {
+      trust: "low",
+      data,
+    }
   }
 
-  return "indeterminate"
+  return {
+    trust: "indeterminate",
+    data,
+  }
 }
 
 // getRepoData extracts information about the given repository URL
 // TODO: handle additional sources and make this more robust to malformed input
-async function getRepoData(url: string, cache: Cache): Promise<RepoData | null> {
+async function getRepoData(
+  node: Node,
+  url: string,
+  cache: Cache
+): Promise<RepoData | null> {
   const [matched, , , host, owner, repo] = REPO_REGEX.exec(url)?.map(
     (e) => e?.toLowerCase() ?? ""
   ) ?? ["", "", "", "", "", ""]
@@ -75,17 +116,18 @@ async function getRepoData(url: string, cache: Cache): Promise<RepoData | null> 
     return null
   }
 
-  if (!(owner === "kelektiv" && repo === "node-uuid")) {
-    console.log(`Skipping ${owner}/${repo} for now`)
-    return null
-  }
+  // if (!(owner === "kelektiv" && repo === "node-uuid")) {
+  //   console.log(`Skipping ${owner}/${repo} for now`)
+  //   return null
+  // }
 
   // If we have valid cache data, use it
   const cacheKey = `github/${owner}/${repo}`
   const cached = cache.get<CacheEntry<ReposGetResponseData>>(cacheKey)
-  if (cached && Date.now() < cached.timestamp + 1 * DAYS) {
-    return extractRepoData(cached.data)
-  }
+  // if (cached && Date.now() < cached.timestamp + 1 * DAYS) {
+  //   console.log("Returning cached data")
+  //   return extractRepoData(cached.data)
+  // }
 
   // TODO: handle lookup failures
   const { data } = await octokit.repos.get({
@@ -100,13 +142,18 @@ async function getRepoData(url: string, cache: Cache): Promise<RepoData | null> 
   }
   cache.update(cacheKey, toCache)
 
-  return extractRepoData(data)
+  return extractRepoData(data, node)
 }
 
 // extract `RepoData` from `ReposGetResponseData`
-function extractRepoData(data: ReposGetResponseData): RepoData {
+function extractRepoData(data: ReposGetResponseData, node: Node): RepoData {
   return {
+    url: data.clone_url,
+    owner: data.owner.login,
+    repo: data.name,
     forks: data.forks_count,
     stars: data.stargazers_count,
+    version: node.package?.version ?? "0.0.0",
+    dependencies: node.edgesOut.size,
   }
 }

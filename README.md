@@ -78,6 +78,8 @@ The results from each analyzer are gathered and combined to return an overall re
 
 ## TODO
 
+- [ ] Figure out the right way to store GitHub personal access token
+- [ ] Update Octokit when the configuration value changes
 - [X] Draft the README
 - [ ] Create `package.json`
 - [ ] Activate when workspace contains `package-lock.json`
