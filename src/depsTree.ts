@@ -1,64 +1,46 @@
 import * as vscode from "vscode"
-import * as path from "path"
 import { Node } from "@npmcli/arborist"
-import { Analyze, Analysis, Cache, Trust } from "./analyze"
-
-// Element is the type of the items help by this TreeDataProvider
-export type Element = [Analysis, Node]
+import { TreeAnalyzer } from "./treeAnalyzer"
+import { Trust } from "./analyze"
 
 // Event is emitted when the tree data changes
-type Event = Element | void
+type Event = Node | void
 
-const TRUST_LABELS: { [key in Trust]: string } = {
+const TRUST_LABELS: { [key in Trust | "pending"]: string } = {
   high: "▲",
-  indeterminate: "?",
+  indeterminate: "-",
   low: "▼",
+  pending: ".",
 }
 
-export class ArboristProvider implements vscode.TreeDataProvider<Element> {
+export class ArboristProvider implements vscode.TreeDataProvider<Node> {
   private _onDidChangeTreeData = new vscode.EventEmitter<Event>()
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event
-  readonly elements = new Map<string, Element>()
 
-  constructor(private readonly root: Element, private readonly cache: Cache) {}
+  constructor(private readonly treeAnalyzer: TreeAnalyzer) {}
 
-  // getChildren returns the children of the given `element` or the root children
-  // iff `element` is `undefined`
-  async getChildren(element?: Element): Promise<Element[]> {
-    const [, node] = element ?? this.root
-
-    const result = Promise.all(
-      Array.from(node.edgesOut.values())
-        .filter((edge) => edge.type === "prod")
-        .map(
-          async (edge): Promise<Element> => {
-            const analysis = await Analyze(edge.to, this.cache)
-            const result: Element = [analysis, edge.to]
-
-            // Make the element available through `elements`
-            const url = analysis?.data.url
-            if (url) {
-              this.elements.set(url, result)
-            }
-
-            return result
-          }
-        )
-    )
-
-    return result
+  // getChildren returns the children of the given `node` or the root children
+  // iff `node` is `undefined`
+  async getChildren(node: Node = this.treeAnalyzer.tree): Promise<Node[]> {
+    const children = this.treeAnalyzer.children(node)
+    this.treeAnalyzer.analyze(children, (node: Node) => {
+      this._onDidChangeTreeData.fire(node)
+    })
+    return children
   }
 
-  // getTreeItem returns a `vscode.TreeItem` for the given `Element`
-  getTreeItem(element: Element): vscode.TreeItem {
-    const [analysis, { name, edgesOut, package: pkg }] = element
+  // getTreeItem returns a `vscode.TreeItem` for the given `Node`
+  getTreeItem(node: Node): vscode.TreeItem {
+    const analysis = this.treeAnalyzer.get(node)
+
+    const { name, edgesOut, package: pkg } = node
 
     const version = pkg?.version ?? ""
-    const label = `${TRUST_LABELS[analysis?.trust ?? "indeterminate"]} ${name}`
+    const label = `${TRUST_LABELS[analysis?.trust ?? "pending"]} ${name}`
     const command = {
-      command: "nodeDependencies.select",
+      command: "nodeDependencies.selectEntry",
       title: "",
-      arguments: [element],
+      arguments: [node],
     }
 
     if (edgesOut.size === 0) {
@@ -85,11 +67,6 @@ export class Dependency extends vscode.TreeItem {
 
     this.tooltip = `${this.label}-${this.version}`
     this.description = this.version
-  }
-
-  iconPath = {
-    light: path.join(__filename, "..", "..", "resources", "light", "dependency.svg"),
-    dark: path.join(__filename, "..", "..", "resources", "dark", "dependency.svg"),
   }
 
   contextValue = "dependency"

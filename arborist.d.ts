@@ -33,6 +33,7 @@ declare module "@npmcli/arborist" {
     // contents of this node's `package.json` file
     package: {
       name?: string
+      description?: string
       version?: string
       repository?: {
         type?: string

@@ -7,7 +7,7 @@ import { Node } from "@npmcli/arborist"
 export type Analysis = {
   trust: Trust
   data: RepoData
-} | null
+}
 
 export type Trust = "low" | "high" | "indeterminate"
 
@@ -39,6 +39,17 @@ const MINUTES = 60 * SECONDS
 const HOURS = 60 * MINUTES
 const DAYS = 24 * HOURS
 
+// BLANK_REPO_DATA is returned when the data could not be gathered
+const BLANK_REPO_DATA = {
+  url: "",
+  owner: "",
+  repo: "",
+  forks: 0,
+  stars: 0,
+  version: "",
+  dependencies: 0,
+}
+
 // Regex for parsing a repository URL of the form:
 // scheme://user@host/owner/repo.git
 // The captured groups are:
@@ -58,19 +69,22 @@ const octokit = new Octokit({
 })
 
 // Analyze the given repository URL to determine trust level
-export async function Analyze(node: Node | undefined, cache: Cache): Promise<Analysis> {
-  if (!node) {
-    return null
-  }
-
-  const url = node?.package?.repository?.url
+export async function Analyze(node: Node, cache: Cache): Promise<Analysis> {
+  const url = node.package?.repository?.url
   if (!url) {
-    return null
+    // TODO: find another way to get the repo URL
+    return {
+      trust: "low",
+      data: BLANK_REPO_DATA,
+    }
   }
 
   const data = await getRepoData(node, url, cache)
   if (!data) {
-    return null
+    return {
+      trust: "low",
+      data: BLANK_REPO_DATA,
+    }
   }
 
   if (data.forks >= 500 || data.stars >= 500) {
@@ -120,7 +134,6 @@ async function getRepoData(
   const cacheKey = `github/${owner}/${repo}`
   const cached = cache.get<CacheEntry<ReposGetResponseData>>(cacheKey)
   if (cached && Date.now() < cached.timestamp + 1 * DAYS) {
-    console.log("Returning cached data")
     return extractRepoData(cached.data, node)
   }
 

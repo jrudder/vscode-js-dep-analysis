@@ -2,12 +2,6 @@ import * as vscode from "vscode"
 import { Node } from "@npmcli/arborist"
 import { Analysis } from "./analyze"
 
-const cats = {
-  "Coding Cat": "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif",
-  "Compiling Cat": "https://media.giphy.com/media/mlvseq9yvZhba/giphy.gif",
-  "Testing Cat": "https://media.giphy.com/media/3oriO0OEd9QIDdllqo/giphy.gif",
-}
-
 export class ReportWebView {
   /**
    * Track the currently panel. Only allow a single panel to exist at a time.
@@ -25,7 +19,7 @@ export class ReportWebView {
 
   public static createOrShow(
     extensionUri: vscode.Uri,
-    analysis: NonNullable<Analysis>,
+    analysis: Analysis,
     node: Node
   ): void {
     const column = vscode.window.activeTextEditor
@@ -89,7 +83,7 @@ export class ReportWebView {
 
     // Update the content based on view changes
     this._panel.onDidChangeViewState(
-      (e) => {
+      () => {
         if (this._panel.visible) {
           this._update()
         }
@@ -134,30 +128,11 @@ export class ReportWebView {
 
   private _update() {
     const webview = this._panel.webview
-
-    // Vary the webview's content based on where it is located in the editor.
-    switch (this._panel.viewColumn) {
-      case vscode.ViewColumn.Two:
-        this._updateForCat(webview, "Compiling Cat")
-        return
-
-      case vscode.ViewColumn.Three:
-        this._updateForCat(webview, "Testing Cat")
-        return
-
-      case vscode.ViewColumn.One:
-      default:
-        this._updateForCat(webview, "Coding Cat")
-        return
-    }
+    this._panel.title = this.node.name
+    this._panel.webview.html = this._getHtmlForWebview(webview)
   }
 
-  private _updateForCat(webview: vscode.Webview, catName: keyof typeof cats) {
-    this._panel.title = catName
-    this._panel.webview.html = this._getHtmlForWebview(webview, cats[catName])
-  }
-
-  private _getHtmlForWebview(webview: vscode.Webview, catGifPath: string) {
+  private _getHtmlForWebview(webview: vscode.Webview) {
     // Local path to main script run in the webview
     const scriptPathOnDisk = vscode.Uri.joinPath(this._extensionUri, "media", "main.js")
 
@@ -179,10 +154,6 @@ export class ReportWebView {
     // Use a nonce to only allow specific scripts to be run
     const nonce = getNonce()
 
-    if (!(this.analysis && this.node)) {
-      return "SADFACE"
-    }
-
     const { url, owner, repo, forks, stars } = this.analysis.data
     const pkg = this.node.package.name ?? ""
 
@@ -201,8 +172,8 @@ export class ReportWebView {
 				<title>Cat Coding</title>
 			</head>
 			<body>
-				<img src="${catGifPath}" width="300" />
         <h1>${this.node?.name}</h1>
+        <p>${this.node.package.description}
         <ul>
           <li>URL: ${url}</li>
           <li>Package: ${pkg}</li>

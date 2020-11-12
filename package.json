@@ -1,7 +1,7 @@
 {
-	"name": "js-sec-maybe",
-	"displayName": "Heuristic JS Dependency Analysis",
-	"description": "heuristic security analysis of JavaScript dependencies",
+	"name": "js-dep-analysis",
+	"displayName": "Dependency Trust for JavaScript",
+	"description": "heuristic trust analysis of JavaScript dependencies",
 	"version": "0.0.1",
 	"publisher": "jrudder",
 	"engines": {
@@ -48,8 +48,8 @@
 				"title": "Add"
 			},
 			{
-				"command": "nodeDependencies.editEntry",
-				"title": "Edit",
+				"command": "nodeDependencies.selectEntry",
+				"title": "View",
 				"icon": {
 					"light": "resources/light/edit.svg",
 					"dark": "resources/dark/edit.svg"
@@ -75,21 +75,17 @@
 			],
 			"view/item/context": [
 				{
-					"command": "nodeDependencies.editEntry",
+					"command": "nodeDependencies.selectEntry",
 					"when": "view == nodeDependencies && viewItem == dependency",
 					"group": "inline"
-				},
-				{
-					"command": "nodeDependencies.deleteEntry",
-					"when": "view == nodeDependencies && viewItem == dependency"
 				}
 			]
 		},
 		"configuration": [
 			{
-				"title": "JavaScript Dependency Analysis",
+				"title": "Dependency Trust Analysis",
 				"properties": {
-					"javascriptDependencyAnalysis.gitHubToken": {
+					"dependencyTrustAnalysis.gitHubToken": {
 						"title": "GitHub Token",
 						"type": "string",
 						"default": "",
