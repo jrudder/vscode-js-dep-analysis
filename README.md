@@ -32,6 +32,15 @@ The data used for analysis is gathered from:
 
 Analysis is currently both rudimentary and hard-coded. See `./src/analyze.ts` for details.
 
+## VS Code APIs & Implementation Details
+
+- `createTreeView` — shows the dependency tree
+- `createStatusBarItem` — shows the status of package analysis
+- `createWebviewPanel` — shows details about the package
+- `getConfiguration` — retrieve a GitHub personal access token to use for data fetching
+- asynchronous data fetching with [Octokit](https://github.com/octokit/rest.js)
+- refreshing tree nodes when analysis completes
+
 ## TODO
 
 - [ ] Figure out the right way to store GitHub personal access token
