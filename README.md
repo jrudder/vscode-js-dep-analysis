@@ -9,7 +9,12 @@ This is a work-in-progress. If it indicates that a particular package has low tr
 This [Visual Studio Code](https://code.visualstudio.com/) extension performs heuristic trust analysis of JavaScript depdendencies by examining various
 properties of each dependency.
 
-At a high level, the extension uses [Arborist](https://github.com/npm/arborist), which powers `npm ls`, to gather dependency information. Additional information is gathered for each dependency (see [Data](#data)), and a trust score is determined: low, indeterminate, or high.
+At a high level, the extension uses [Arborist](https://github.com/npm/arborist), which powers `npm ls`, to gather dependency information. Additional information is gathered for each dependency (see [Data](#data)), and a trust score is determined: low, indeterminate, or high. In the tree view, an indicator next to the package name shows the trust score:
+
+- high: ▲
+- indeterminate: -
+- low: ▼
+- pending: .
 
 ![Screenshot](.github/screenshot.png?raw=true "Extension Screenshot")
 
