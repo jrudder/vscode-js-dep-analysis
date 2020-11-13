@@ -18,6 +18,16 @@ At a high level, the extension uses [Arborist](https://github.com/npm/arborist),
 
 ![Screenshot](.github/screenshot.png?raw=true "Extension Screenshot")
 
+## Running
+
+- clone and open the project in VS Code
+- set the `dependencyTrustAnalysis.gitHubToken` setting to a GitHub personal access token (no explicit permissions needed)
+- launch the extension
+- open a JavaScript project (e.g. with a `package.json` and populated `node_modules` directory)
+- click the extension's icon in the activity bar to see the dependency tree
+- click the pencil icon for a dependency to view its details
+- note that a dependency with `.` at the beginning has not yet loaded its data
+
 ## Data
 
 The data used for analysis is gathered from:
